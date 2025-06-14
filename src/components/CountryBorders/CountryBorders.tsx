@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Line } from "@react-three/drei";
 import * as THREE from "three";
+import { ScaleUtils } from "../../utils/scaleUtils";
 
 interface CountryBordersProps {
     visible?: boolean;
@@ -154,9 +155,8 @@ export function CountryBorders({
     );
 }
 
-// Optimized coordinate conversion with better error handling
+// Updated coordinate conversion using scale utility
 function convertToSphereCoords(coordinates: number[][]): THREE.Vector3[] {
-    const radius = 2.001;
     const points: THREE.Vector3[] = [];
 
     for (let i = 0; i < coordinates.length; i++) {
@@ -175,14 +175,8 @@ function convertToSphereCoords(coordinates: number[][]): THREE.Vector3[] {
             continue;
         }
 
-        const phi = (90 - lat) * (Math.PI / 180);
-        const theta = (lng + 180) * (Math.PI / 180);
-
-        const x = -(radius * Math.sin(phi) * Math.cos(theta));
-        const y = radius * Math.cos(phi);
-        const z = radius * Math.sin(phi) * Math.sin(theta);
-
-        points.push(new THREE.Vector3(x, y, z));
+        const coords = ScaleUtils.getBorderPosition(lng, lat);
+        points.push(new THREE.Vector3(...coords));
     }
 
     return points;

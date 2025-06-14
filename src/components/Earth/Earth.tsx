@@ -1,5 +1,5 @@
 import { useRef, useMemo } from "react";
-import { useFrame, useLoader } from "@react-three/fiber";
+import { useLoader } from "@react-three/fiber";
 import { TextureLoader } from "three";
 import * as THREE from "three";
 import { CountryBorders } from "../CountryBorders/CountryBorders";
@@ -11,9 +11,10 @@ interface EarthProps {
     showClouds?: boolean;
     showCountryBorders?: boolean;
     brightness?: number;
-    isRotating?: boolean;
     borderThickness?: number;
     quality?: number;
+    borderOnlyMode?: boolean;
+    borderColor?: string; // New prop for border color
 }
 
 export function Earth({
@@ -23,9 +24,10 @@ export function Earth({
     showClouds = true,
     showCountryBorders = false,
     brightness = 1,
-    isRotating = false,
     borderThickness = 1.5,
     quality = 64,
+    borderOnlyMode = false,
+    borderColor = "#00ff88", // Default border color
 }: EarthProps) {
     const earthRef = useRef<THREE.Mesh>(null!);
     const cloudsRef = useRef<THREE.Mesh>(null!);
@@ -53,12 +55,22 @@ export function Earth({
 
     // Optimized materials
     const earthMaterial = useMemo(() => {
+        if (borderOnlyMode) {
+            // Gray sphere material for border-only mode
+            return new THREE.MeshPhongMaterial({
+                color: 0x404040, // Dark gray
+                transparent: false,
+                opacity: 1.0,
+                shininess: 20,
+            });
+        }
+
         const material = new THREE.MeshPhongMaterial({
             map: isNightTexture ? nightTexture : dayTexture,
             shininess: 100,
         });
         return material;
-    }, [isNightTexture, dayTexture, nightTexture]);
+    }, [isNightTexture, dayTexture, nightTexture, borderOnlyMode]);
 
     const cloudsMaterial = useMemo(() => {
         return new THREE.MeshPhongMaterial({
@@ -69,16 +81,6 @@ export function Earth({
         });
     }, [cloudsTexture, brightness]);
 
-    // Controlled rotation with performance optimization
-    useFrame((state, delta) => {
-        if (isRotating && groupRef.current) {
-            groupRef.current.rotation.y += delta * 0.1;
-        }
-        if (isRotating && cloudsRef.current && showClouds) {
-            cloudsRef.current.rotation.y += delta * 0.02;
-        }
-    });
-
     return (
         <group ref={groupRef} position={position} scale={scale}>
             {/* Main Earth sphere */}
@@ -88,8 +90,8 @@ export function Earth({
                 material={earthMaterial}
             />
 
-            {/* Clouds layer */}
-            {showClouds && (
+            {/* Clouds layer - hide in border-only mode */}
+            {showClouds && !borderOnlyMode && (
                 <mesh
                     ref={cloudsRef}
                     geometry={cloudsGeometry}
@@ -98,13 +100,15 @@ export function Earth({
                 />
             )}
 
-            {/* Country Borders */}
-            {showCountryBorders && (
+            {/* Country Borders - always show in border-only mode */}
+            {(showCountryBorders || borderOnlyMode) && (
                 <CountryBorders
-                    visible={showCountryBorders}
-                    opacity={0.8 * brightness}
-                    color="#00ff88"
-                    lineWidth={borderThickness}
+                    visible={true}
+                    opacity={borderOnlyMode ? 1.0 : 0.8 * brightness}
+                    color={borderColor}
+                    lineWidth={
+                        borderOnlyMode ? borderThickness * 1.5 : borderThickness
+                    }
                 />
             )}
         </group>

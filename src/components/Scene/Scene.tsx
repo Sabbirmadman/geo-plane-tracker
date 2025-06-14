@@ -2,6 +2,8 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import { Suspense, memo } from "react";
 import { Earth } from "../Earth/Earth";
+import { FlightTracker } from "../FlightTracker/FlightTracker";
+import { FlightData } from "../../utils/flightData";
 
 interface SceneProps {
     isNightTexture?: boolean;
@@ -10,10 +12,17 @@ interface SceneProps {
     brightness?: number;
     ambientLightIntensity?: number;
     directionalLightIntensity?: number;
-    isRotating?: boolean;
     borderThickness?: number;
     showBorders?: boolean;
     earthQuality?: number;
+    showFlights?: boolean;
+    showFlightPaths?: boolean;
+    maxFlights?: number;
+    flightUpdateInterval?: number;
+    borderOnlyMode?: boolean;
+    onFlightSelect?: (flight: FlightData | null) => void;
+    borderColor?: string;
+    airplaneScale?: number;
 }
 
 export const Scene = memo(function Scene({
@@ -23,10 +32,17 @@ export const Scene = memo(function Scene({
     brightness = 1,
     ambientLightIntensity = 0.2,
     directionalLightIntensity = 1,
-    isRotating = false,
     borderThickness = 1.5,
     showBorders = true,
     earthQuality = 64,
+    showFlights = false,
+    showFlightPaths = false,
+    maxFlights = 50,
+    flightUpdateInterval = 30000,
+    borderOnlyMode = false,
+    borderColor = "#00ff88",
+    airplaneScale = 1,
+    onFlightSelect,
 }: SceneProps) {
     return (
         <div className="w-full h-screen">
@@ -63,15 +79,25 @@ export const Scene = memo(function Scene({
                     />
                 )}
 
-                {/* Camera controls */}
+                {/* Camera controls - increased zoom capability */}
                 <OrbitControls
                     enablePan={true}
                     enableZoom={true}
                     enableRotate={true}
-                    minDistance={3}
-                    maxDistance={20}
+                    minDistance={2.5} // Allow closer zoom
+                    maxDistance={50} // Allow further zoom out
                     enableDamping={true}
                     dampingFactor={0.05}
+                />
+
+                {/* Flight Tracker */}
+                <FlightTracker
+                    showFlights={showFlights}
+                    showFlightPaths={showFlightPaths}
+                    maxFlights={maxFlights}
+                    updateInterval={flightUpdateInterval}
+                    onFlightSelect={onFlightSelect}
+                    airplaneScale={airplaneScale}
                 />
 
                 {/* Earth */}
@@ -81,9 +107,10 @@ export const Scene = memo(function Scene({
                         showClouds={showClouds}
                         showCountryBorders={showBorders}
                         brightness={brightness}
-                        isRotating={isRotating}
                         borderThickness={borderThickness}
                         quality={earthQuality}
+                        borderOnlyMode={borderOnlyMode}
+                        borderColor={borderColor}
                     />
                 </Suspense>
             </Canvas>
