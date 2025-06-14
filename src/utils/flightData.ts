@@ -42,7 +42,6 @@ export class FlightDataService {
     private cachedFlights: FlightData[] = [];
     private cacheTimestamp = 0;
     private readonly CACHE_DURATION = 15000; // 15 seconds cache
-    private requestCount = 0;
     private readonly MAX_REQUESTS_PER_HOUR = 400;
     private requestTimes: number[] = [];
 
@@ -233,8 +232,7 @@ export class FlightDataService {
 
     async fetchFlightPath(
         icao24: string,
-        beginTime: number,
-        endTime: number
+        beginTime: number
     ): Promise<FlightPath | null> {
         try {
             // Check if we already have this path cached

@@ -109,11 +109,7 @@ export function FlightTracker({
         if (showFlightPaths) {
             const endTime = Math.floor(Date.now() / 1000);
             const beginTime = endTime - 7200; // Last 2 hours
-            await flightService.fetchFlightPath(
-                flight.icao24,
-                beginTime,
-                endTime
-            );
+            await flightService.fetchFlightPath(flight.icao24, beginTime);
         }
     };
 
