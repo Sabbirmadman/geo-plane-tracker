@@ -23,7 +23,7 @@ export function FlightTracker({
     const [flights, setFlights] = useState<FlightData[]>([]);
     const [selectedFlight, setSelectedFlight] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const intervalRef = useRef<number | null>(null);
     const flightService = FlightDataService.getInstance();
 
     const fetchFlights = async () => {
@@ -74,7 +74,10 @@ export function FlightTracker({
             fetchFlights();
             // Ensure minimum 30 second interval to respect rate limits
             const safeInterval = Math.max(updateInterval, 30000);
-            intervalRef.current = setInterval(fetchFlights, safeInterval);
+            intervalRef.current = window.setInterval(
+                fetchFlights,
+                safeInterval
+            ); // Use window.setInterval
 
             if (safeInterval !== updateInterval) {
                 console.log(
@@ -85,13 +88,13 @@ export function FlightTracker({
             }
         } else {
             if (intervalRef.current) {
-                clearInterval(intervalRef.current);
+                window.clearInterval(intervalRef.current); // Use window.clearInterval
             }
         }
 
         return () => {
             if (intervalRef.current) {
-                clearInterval(intervalRef.current);
+                window.clearInterval(intervalRef.current); // Use window.clearInterval
             }
         };
     }, [showFlights, maxFlights, updateInterval]);
