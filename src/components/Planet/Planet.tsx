@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useCallback } from "react";
 import { useLoader, useFrame, ThreeEvent } from "@react-three/fiber";
 import { TextureLoader } from "three";
 import * as THREE from "three";
@@ -6,6 +6,8 @@ import { CountryBorders } from "../CountryBorders/CountryBorders";
 import { PlanetRings } from "./PlanetRings";
 import { Moon } from "./Moon";
 import { TextureManager } from "../../utils/textureManager";
+import { GeometryManager } from "../../utils/geometryManager";
+import { PerformanceManager } from "../../utils/performanceManager";
 
 export interface MoonData {
     name: string;
@@ -83,6 +85,20 @@ export function Planet({
     const planetRef = useRef<THREE.Mesh>(null!);
     const cloudsRef = useRef<THREE.Mesh>(null!);
     const groupRef = useRef<THREE.Group>(null!);
+    const lastDistance = useRef<number>(0);
+
+    // Calculate distance-based quality
+    const adaptiveQuality = useMemo(() => {
+        const performanceManager = PerformanceManager.getInstance();
+        const recommendation = performanceManager.getQualityRecommendation();
+
+        let baseQuality = quality;
+        if (recommendation === "low") baseQuality = Math.max(16, quality / 4);
+        else if (recommendation === "medium")
+            baseQuality = Math.max(32, quality / 2);
+
+        return baseQuality;
+    }, [quality]);
 
     // Create a stable array of texture URLs to load
     const textureUrls = useMemo(() => {
@@ -162,21 +178,20 @@ export function Planet({
         return result;
     }, [loadedTextures, textureUrls]);
 
-    // Planet geometry
+    // Optimized geometry with LOD
     const planetGeometry = useMemo(() => {
-        return new THREE.SphereGeometry(radius, quality, quality);
-    }, [radius, quality]);
+        return GeometryManager.getSphereGeometry(radius, adaptiveQuality);
+    }, [radius, adaptiveQuality]);
 
-    // Clouds geometry
+    // Optimized clouds geometry
     const cloudsGeometry = useMemo(() => {
-        return new THREE.SphereGeometry(
+        return GeometryManager.getSphereGeometry(
             radius * 1.01,
-            Math.max(32, quality / 2),
-            Math.max(32, quality / 2)
+            Math.max(16, adaptiveQuality / 2)
         );
-    }, [radius, quality]);
+    }, [radius, adaptiveQuality]);
 
-    // Planet material
+    // Memoized materials to prevent recreation
     const planetMaterial = useMemo(() => {
         if (borderOnlyMode) {
             return new THREE.MeshPhongMaterial({
@@ -230,26 +245,52 @@ export function Planet({
         });
     }, [textureObjects.clouds, brightness]);
 
-    // Animate planet rotation
-    useFrame(() => {
+    // Optimized frame update with distance-based LOD
+    useFrame(({ camera }) => {
         if (groupRef.current && rotationSpeed > 0) {
             groupRef.current.rotation.y += rotationSpeed;
         }
+
+        // Update performance manager
+        PerformanceManager.getInstance().update();
+
+        // Distance-based optimization
+        if (planetRef.current && camera) {
+            const distance = camera.position.distanceTo(
+                planetRef.current.position
+            );
+
+            // Only update LOD if distance changed significantly
+            if (Math.abs(distance - lastDistance.current) > 5) {
+                lastDistance.current = distance;
+
+                // Frustum culling for very distant objects
+                if (distance > 500) {
+                    groupRef.current.visible = false;
+                } else {
+                    groupRef.current.visible = true;
+                }
+            }
+        }
     });
 
-    const handlePlanetClick = (event: ThreeEvent<MouseEvent>) => {
-        event.stopPropagation();
-        const worldPosition = new THREE.Vector3();
-        groupRef.current.getWorldPosition(worldPosition);
-        const pos: [number, number, number] = [
-            worldPosition.x,
-            worldPosition.y,
-            worldPosition.z,
-        ];
+    // Optimized click handler
+    const handlePlanetClick = useCallback(
+        (event: ThreeEvent<MouseEvent>) => {
+            event.stopPropagation();
+            const worldPosition = new THREE.Vector3();
+            groupRef.current.getWorldPosition(worldPosition);
+            const pos: [number, number, number] = [
+                worldPosition.x,
+                worldPosition.y,
+                worldPosition.z,
+            ];
 
-        onPlanetClick?.(pos);
-        onCameraTarget?.(pos);
-    };
+            onPlanetClick?.(pos);
+            onCameraTarget?.(pos);
+        },
+        [onPlanetClick, onCameraTarget]
+    );
 
     const handleMoonClick = (moonPosition: [number, number, number]) => {
         const planetWorldPos = new THREE.Vector3();
@@ -271,6 +312,7 @@ export function Planet({
                 geometry={planetGeometry}
                 material={planetMaterial}
                 onClick={handlePlanetClick}
+                frustumCulled={true}
             />
 
             {showClouds && cloudsMaterial && (
@@ -279,6 +321,7 @@ export function Planet({
                     geometry={cloudsGeometry}
                     material={cloudsMaterial}
                     onClick={handlePlanetClick}
+                    frustumCulled={true}
                 />
             )}
 
@@ -300,6 +343,7 @@ export function Planet({
                     texture={rings.texture}
                     color={rings.color}
                     opacity={rings.opacity}
+                    visible={true}
                 />
             )}
 

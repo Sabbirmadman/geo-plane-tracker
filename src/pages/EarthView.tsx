@@ -1,12 +1,16 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Scene } from "../components/Scene/Scene";
+import {
+    PerformanceManager,
+    PerformanceMetrics,
+} from "../utils/performanceManager";
 
 export default function EarthView() {
     const [isNightTexture, setIsNightTexture] = useState(false);
     const [showClouds, setShowClouds] = useState(true);
     const [showStars, setShowStars] = useState(true);
     const [brightness, setBrightness] = useState(1);
-    const [ambientLightIntensity, setAmbientLightIntensity] = useState(0.1);
+    const [ambientLightIntensity, setAmbientLightIntensity] = useState(0.3); // Increased from 0.1
     const [borderThickness, setBorderThickness] = useState(1.5);
     const [showBorders, setShowBorders] = useState(true);
     const [earthQuality, setEarthQuality] = useState(64);
@@ -15,7 +19,25 @@ export default function EarthView() {
     const [borderColor, setBorderColor] = useState("#00ff88");
     const [showOrbitLines, setShowOrbitLines] = useState(true);
     const [selectedObject, setSelectedObject] = useState<string>("");
-    const [sunIntensity, setSunIntensity] = useState(1.5); // Add sun intensity state
+    const [sunIntensity, setSunIntensity] = useState(2.5); // Increased from 1.5
+    const [performanceStats, setPerformanceStats] =
+        useState<PerformanceMetrics | null>(null);
+    const [showPerformance, setShowPerformance] = useState(false);
+    const [showRocket, setShowRocket] = useState(false);
+    const [rocketMode, setRocketMode] = useState<"rocket" | "hover">("rocket");
+    const [rocketPosition, setRocketPosition] = useState<
+        [number, number, number]
+    >([35, 5, 0]);
+
+    // Update performance stats
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const stats = PerformanceManager.getInstance().getStats();
+            setPerformanceStats(stats);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     const handlePlanetClick = useCallback(
         (position: [number, number, number]) => {
@@ -67,6 +89,23 @@ export default function EarthView() {
             setShowClouds(false);
         }
     }, []);
+    const handleRocketToggle = useCallback((checked: boolean) => {
+        setShowRocket(checked);
+        if (!checked) {
+            setSelectedObject("");
+        }
+    }, []);
+
+    const handleRocketModeChange = useCallback((mode: "rocket" | "hover") => {
+        setRocketMode(mode);
+    }, []);
+
+    const handleRocketPositionChange = useCallback(
+        (position: [number, number, number]) => {
+            setRocketPosition(position);
+        },
+        []
+    );
 
     return (
         <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -84,7 +123,29 @@ export default function EarthView() {
                 showOrbitLines={showOrbitLines}
                 sunIntensity={sunIntensity}
                 onPlanetClick={handlePlanetClick}
+                showRocket={showRocket}
+                rocketMode={rocketMode}
+                onRocketPositionChange={handleRocketPositionChange}
             />
+
+            {/* Performance Monitor */}
+            {showPerformance && performanceStats && (
+                <div className="absolute top-4 left-4 z-30 bg-black bg-opacity-90 text-white p-3 rounded-lg text-xs font-mono">
+                    <div className="mb-2 font-bold">Performance Stats</div>
+                    <div>FPS: {performanceStats.fps}</div>
+                    <div>
+                        Frame Time: {performanceStats.frameTime.toFixed(1)}ms
+                    </div>
+                    <div>Draw Calls: {performanceStats.drawCalls}</div>
+                    <div>
+                        Triangles: {performanceStats.triangles.toLocaleString()}
+                    </div>
+                    <div>Textures: {performanceStats.textures}</div>
+                    <div>
+                        Memory: {performanceStats.memoryUsage.toFixed(1)}MB
+                    </div>
+                </div>
+            )}
 
             {selectedObject && (
                 <div className="absolute top-4 left-4 z-20">
@@ -95,6 +156,35 @@ export default function EarthView() {
                         </div>
                         <div className="text-xs text-gray-300 mt-1">
                             Realistic orbital mechanics • 1h = 24h Earth time
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Rocket Controls */}
+            {showRocket && (
+                <div className="absolute top-4 left-4 z-30 bg-black bg-opacity-90 text-white p-4 rounded-lg text-sm">
+                    <div className="mb-2 font-bold text-blue-400">
+                        Rocket Explorer
+                    </div>
+                    <div className="text-xs space-y-1">
+                        <div>
+                            Position:{" "}
+                            {rocketPosition.map((p) => p.toFixed(1)).join(", ")}
+                        </div>
+                        <div>
+                            Mode:{" "}
+                            {rocketMode === "rocket"
+                                ? "Rocket Physics"
+                                : "Free Hover"}
+                        </div>
+                        <div className="mt-2 border-t border-gray-600 pt-2">
+                            <div>
+                                <strong>Movement:</strong> WASD + Space/Shift
+                            </div>
+                            <div>
+                                <strong>Rotation:</strong> Arrow Keys + Q/E
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -188,6 +278,14 @@ export default function EarthView() {
                             </div>
 
                             <div className="pt-2">
+                                <ToggleControl
+                                    label="Performance Stats"
+                                    checked={showPerformance}
+                                    onChange={setShowPerformance}
+                                />
+                            </div>
+
+                            <div className="pt-2">
                                 <label className="text-sm font-medium mb-2 block">
                                     Border Color:
                                 </label>
@@ -271,8 +369,68 @@ export default function EarthView() {
                                         <option value={128}>High (128)</option>
                                     </select>
                                 </div>
+
+                                <div className="text-xs text-gray-400 mt-2">
+                                    <div>
+                                        Saturn rings switch to asteroid detail
+                                        when closer than 50 units
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-600">
+                        <h3 className="text-sm font-semibold text-blue-300 mb-2">
+                            Rocket Explorer
+                        </h3>
+                        <div className="flex items-center justify-between mb-2">
+                            <ToggleControl
+                                label="Rocket Mode"
+                                checked={showRocket}
+                                onChange={handleRocketToggle}
+                            />
+                            <a
+                                href="/rocket-editor"
+                                className="text-xs text-blue-400 hover:text-blue-300 underline"
+                            >
+                                Rocket Inspector →
+                            </a>
+                        </div>
+
+                        {showRocket && (
+                            <div className="mt-2">
+                                <label className="text-sm font-medium mb-2 block">
+                                    Flight Mode:
+                                </label>
+                                <div className="flex space-x-2">
+                                    <button
+                                        onClick={() =>
+                                            handleRocketModeChange("rocket")
+                                        }
+                                        className={`px-3 py-1 text-xs rounded ${
+                                            rocketMode === "rocket"
+                                                ? "bg-blue-600 text-white"
+                                                : "bg-gray-700 text-gray-300"
+                                        }`}
+                                    >
+                                        Rocket
+                                    </button>
+                                    <button
+                                        onClick={() =>
+                                            handleRocketModeChange("hover")
+                                        }
+                                        className={`px-3 py-1 text-xs rounded ${
+                                            rocketMode === "hover"
+                                                ? "bg-blue-600 text-white"
+                                                : "bg-gray-700 text-gray-300"
+                                        }`}
+                                    >
+                                        Hover
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

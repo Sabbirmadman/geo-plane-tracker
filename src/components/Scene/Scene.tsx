@@ -1,7 +1,10 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
-import { Suspense, memo, useRef } from "react";
+import { Suspense, memo, useRef, useEffect } from "react";
 import { SolarSystem } from "../SolarSystem/SolarSystem";
+import { TextureManager } from "../../utils/textureManager";
+import { PerformanceManager } from "../../utils/performanceManager";
+import { Rocket } from "../Rocket/Rocket";
 
 interface SceneProps {
     isNightTexture?: boolean;
@@ -17,6 +20,9 @@ interface SceneProps {
     showOrbitLines?: boolean;
     sunIntensity?: number;
     onPlanetClick?: (position: [number, number, number]) => void;
+    showRocket?: boolean;
+    rocketMode?: "rocket" | "hover";
+    onRocketPositionChange?: (position: [number, number, number]) => void;
 }
 
 export const Scene = memo(function Scene({
@@ -33,9 +39,26 @@ export const Scene = memo(function Scene({
     showOrbitLines = true,
     sunIntensity = 1.5,
     onPlanetClick,
+    showRocket = false,
+    rocketMode = "rocket",
+    onRocketPositionChange,
 }: SceneProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const controlsRef = useRef<any>(null);
+
+    // Preload essential textures on mount
+    useEffect(() => {
+        TextureManager.preloadEssentialTextures().catch(console.warn);
+    }, []);
+
+    // Preload textures based on camera distance
+    useEffect(() => {
+        if (controlsRef.current?.object) {
+            const camera = controlsRef.current.object;
+            const distance = camera.position.length();
+            TextureManager.preloadByDistance(distance).catch(console.warn);
+        }
+    }, [controlsRef.current?.object?.position]);
 
     const handleCameraTarget = (position: [number, number, number]) => {
         if (controlsRef.current) {
@@ -66,6 +89,10 @@ export const Scene = memo(function Scene({
                     depth: true,
                 }}
                 dpr={[1, 2]}
+                onCreated={({ gl }) => {
+                    // Initialize performance manager with renderer
+                    PerformanceManager.getInstance().setRenderer(gl);
+                }}
             >
                 {/* Minimal ambient lighting - Sun provides main lighting */}
                 <ambientLight intensity={ambientLightIntensity * brightness} />
@@ -82,17 +109,28 @@ export const Scene = memo(function Scene({
                     />
                 )}
 
-                {/* Camera controls */}
-                <OrbitControls
-                    ref={controlsRef}
-                    enablePan={true}
-                    enableZoom={true}
-                    enableRotate={true}
-                    minDistance={5}
-                    maxDistance={200}
-                    enableDamping={true}
-                    dampingFactor={0.05}
-                />
+                {/* Camera controls - disabled when rocket is active */}
+                {!showRocket && (
+                    <OrbitControls
+                        ref={controlsRef}
+                        enablePan={true}
+                        enableZoom={true}
+                        enableRotate={true}
+                        minDistance={5}
+                        maxDistance={200}
+                        enableDamping={true}
+                        dampingFactor={0.05}
+                    />
+                )}
+
+                {/* Rocket for exploration */}
+                {showRocket && (
+                    <Rocket
+                        isActive={true}
+                        isHoverMode={rocketMode === "hover"}
+                        onPositionChange={onRocketPositionChange}
+                    />
+                )}
 
                 {/* Solar System */}
                 <Suspense fallback={null}>

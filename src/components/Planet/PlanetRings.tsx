@@ -10,6 +10,7 @@ interface PlanetRingsProps {
     color?: string;
     opacity?: number;
     segments?: number;
+    visible?: boolean;
 }
 
 export function PlanetRings({
@@ -19,6 +20,7 @@ export function PlanetRings({
     color = "#ffffff",
     opacity = 0.7,
     segments = 64,
+    visible = true,
 }: PlanetRingsProps) {
     const ringRef = useRef<THREE.Mesh>(null!);
 
@@ -38,7 +40,7 @@ export function PlanetRings({
         const materialProps: THREE.MeshBasicMaterialParameters = {
             color: color,
             transparent: true,
-            opacity: opacity,
+            opacity: visible ? opacity : 0,
             side: THREE.DoubleSide,
             depthWrite: false,
         };
@@ -50,7 +52,11 @@ export function PlanetRings({
         }
 
         return new THREE.MeshBasicMaterial(materialProps);
-    }, [color, opacity, ringTexture, texture]);
+    }, [color, opacity, ringTexture, texture, visible]);
+
+    if (!visible) {
+        return null;
+    }
 
     return (
         <mesh
@@ -58,6 +64,7 @@ export function PlanetRings({
             geometry={ringGeometry}
             material={ringMaterial}
             rotation={[Math.PI / 2, 0, 0]} // Rotate to be horizontal
+            visible={visible}
         />
     );
 }

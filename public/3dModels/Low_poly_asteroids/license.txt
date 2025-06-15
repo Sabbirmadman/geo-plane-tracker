@@ -1,0 +1,11 @@
+Model Information:
+* title:	8 Low Poly Asteroids
+* source:	https://sketchfab.com/3d-models/8-low-poly-asteroids-6019fc70e28f4b5283f66a4d1d21741b
+* author:	Everios96 (https://sketchfab.com/ikarustelevision)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "8 Low Poly Asteroids" (https://sketchfab.com/3d-models/8-low-poly-asteroids-6019fc70e28f4b5283f66a4d1d21741b) by Everios96 (https://sketchfab.com/ikarustelevision) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -1,3 +1,5 @@
+import * as THREE from "three";
+
 export interface PlanetTextures {
     day?: string;
     night?: string;
@@ -71,6 +73,11 @@ export class TextureManager {
         ice: `${TextureManager.PLANET_PATH}/fallbacks/ice_surface.jpg`,
         metal: `${TextureManager.PLANET_PATH}/fallbacks/metal_surface.jpg`,
     };
+
+    // Texture cache for loaded textures
+    private static textureCache = new Map<string, THREE.Texture>();
+    private static loadingPromises = new Map<string, Promise<THREE.Texture>>();
+    private static preloadedTextures = new Set<string>();
 
     /**
      * Get texture path for a specific planet and texture type
@@ -344,6 +351,145 @@ export class TextureManager {
         type: keyof typeof TextureManager.SKYBOXES
     ): string {
         return this.SKYBOXES[type];
+    }
+
+    /**
+     * Preload and cache a texture
+     */
+    public static async preloadTexture(url: string): Promise<THREE.Texture> {
+        // Check if already cached
+        if (this.textureCache.has(url)) {
+            return this.textureCache.get(url)!;
+        }
+
+        // Check if already loading
+        if (this.loadingPromises.has(url)) {
+            return this.loadingPromises.get(url)!;
+        }
+
+        // Start loading
+        const loadPromise = new Promise<THREE.Texture>((resolve, reject) => {
+            const loader = new THREE.TextureLoader();
+            loader.load(
+                url,
+                (texture) => {
+                    // Optimize texture settings
+                    texture.generateMipmaps = true;
+                    texture.minFilter = THREE.LinearMipmapLinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.wrapT = THREE.RepeatWrapping;
+
+                    // Cache the texture
+                    this.textureCache.set(url, texture);
+                    this.preloadedTextures.add(url);
+                    this.loadingPromises.delete(url);
+                    resolve(texture);
+                },
+                undefined,
+                (error) => {
+                    this.loadingPromises.delete(url);
+                    reject(error);
+                }
+            );
+        });
+
+        this.loadingPromises.set(url, loadPromise);
+        return loadPromise;
+    }
+
+    /**
+     * Get cached texture or load it
+     */
+    public static getCachedTexture(url: string): THREE.Texture | null {
+        return this.textureCache.get(url) || null;
+    }
+
+    /**
+     * Preload all essential textures
+     */
+    public static async preloadEssentialTextures(): Promise<void> {
+        const essentialTextures = [
+            this.PLANETS.earth.day!,
+            this.PLANETS.earth.night!,
+            this.PLANETS.earth.clouds!,
+            this.PLANETS.moon.day!,
+            this.PLANETS.sun.emissive!,
+        ];
+
+        const loadPromises = essentialTextures.map((url) =>
+            this.preloadTexture(url).catch(console.warn)
+        );
+
+        await Promise.all(loadPromises);
+    }
+
+    /**
+     * Preload textures for specific distance ranges (LOD)
+     */
+    public static async preloadByDistance(
+        cameraDistance: number
+    ): Promise<void> {
+        let texturesToLoad: string[] = [];
+
+        if (cameraDistance < 50) {
+            // Close range - load high quality textures
+            texturesToLoad = [
+                this.PLANETS.earth.day!,
+                this.PLANETS.earth.night!,
+                this.PLANETS.earth.clouds!,
+                this.PLANETS.moon.day!,
+            ];
+        } else if (cameraDistance < 150) {
+            // Medium range - load main planet textures
+            texturesToLoad = Object.values(this.PLANETS)
+                .map((planet) => planet.day)
+                .filter(Boolean) as string[];
+        }
+
+        const loadPromises = texturesToLoad.map((url) =>
+            this.preloadTexture(url).catch(console.warn)
+        );
+
+        await Promise.all(loadPromises);
+    }
+
+    /**
+     * Clear unused textures from cache
+     */
+    public static clearUnusedTextures(activeTextures: string[]): void {
+        const activeSet = new Set(activeTextures);
+
+        for (const [url, texture] of this.textureCache.entries()) {
+            if (!activeSet.has(url)) {
+                texture.dispose();
+                this.textureCache.delete(url);
+                this.preloadedTextures.delete(url);
+            }
+        }
+    }
+
+    /**
+     * Get memory usage statistics
+     */
+    public static getMemoryStats(): {
+        cachedTextures: number;
+        estimatedMemoryMB: number;
+    } {
+        let estimatedMemory = 0;
+
+        for (const texture of this.textureCache.values()) {
+            if (texture.image) {
+                // Rough estimation: width * height * 4 bytes (RGBA)
+                const size = texture.image.width * texture.image.height * 4;
+                estimatedMemory += size;
+            }
+        }
+
+        return {
+            cachedTextures: this.textureCache.size,
+            estimatedMemoryMB: estimatedMemory / (1024 * 1024),
+        };
     }
 }
 

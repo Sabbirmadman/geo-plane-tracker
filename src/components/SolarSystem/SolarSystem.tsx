@@ -8,6 +8,7 @@ import { Mars } from "./Mars";
 import { Jupiter } from "./Jupiter";
 import { Saturn } from "./Saturn";
 import { OrbitLine } from "./OrbitLine";
+import { AsteroidField } from "../Asteroid/AsteroidField";
 import * as THREE from "three";
 import { TextureManager } from "../../utils/textureManager";
 
@@ -36,7 +37,7 @@ export function SolarSystem({
     earthQuality = 64,
     borderOnlyMode = false,
     borderColor = "#00ff88",
-    sunIntensity = 1.5,
+    sunIntensity = 2.5, // Increased default sun intensity
     onPlanetClick,
     onCameraTarget,
 }: SolarSystemProps) {
@@ -55,13 +56,23 @@ export function SolarSystem({
 
     return (
         <group>
-            {/* Sun at center */}
+            {/* Sun at center with brighter intensity */}
             <Sun
                 position={[0, 0, 0]}
                 radius={3}
                 texture={sunConfig.emissive}
                 intensity={sunIntensity}
                 onSunClick={onCameraTarget}
+            />
+
+            {/* Asteroid Field - random asteroids passing by */}
+            <AsteroidField
+                count={75}
+                spread={400}
+                speed={0.03}
+                minSize={0.05}
+                maxSize={0.4}
+                showGas={true}
             />
 
             {/* Orbital lines */}
@@ -127,7 +138,7 @@ export function SolarSystem({
                 onCameraTarget={onCameraTarget}
             />
 
-            {/* Saturn */}
+            {/* Saturn with asteroid rings */}
             <Saturn
                 onPlanetClick={onPlanetClick}
                 onCameraTarget={onCameraTarget}
