@@ -12,7 +12,7 @@ interface MercuryProps {
 
 export function Mercury({ onPlanetClick, onCameraTarget }: MercuryProps) {
     const orbitRef = useRef<THREE.Group>(null!);
-    const orbitRadius = 15;
+    const orbitRadius = 75; // Increased from 15 to 75 (5x larger)
     const orbitSpeed = 0.002; // Mercury's fast orbit (88 days)
 
     // Animate Mercury's orbit around the sun

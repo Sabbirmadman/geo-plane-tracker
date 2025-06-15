@@ -11,7 +11,7 @@ interface VenusProps {
 
 export function Venus({ onPlanetClick, onCameraTarget }: VenusProps) {
     const orbitRef = useRef<THREE.Group>(null!);
-    const orbitRadius = 22;
+    const orbitRadius = 110; // Increased from 22 to 110 (5x larger)
     const orbitSpeed = 0.0015; // Venus orbit (225 days)
 
     // Animate Venus's orbit around the sun

@@ -11,7 +11,7 @@ interface JupiterProps {
 
 export function Jupiter({ onPlanetClick, onCameraTarget }: JupiterProps) {
     const orbitRef = useRef<THREE.Group>(null!);
-    const orbitRadius = 70;
+    const orbitRadius = 350; // Increased from 70 to 350 (5x larger)
     const orbitSpeed = 0.0003; // Jupiter orbit (12 years)
 
     // Animate Jupiter's orbit around the sun

@@ -42,7 +42,7 @@ export function SolarSystem({
     onCameraTarget,
 }: SolarSystemProps) {
     const earthOrbitRef = useRef<THREE.Group>(null!);
-    const earthOrbitRadius = 30;
+    const earthOrbitRadius = 150; // Increased from 30 to 150 (5x larger)
     const earthOrbitSpeed = 0.001; // Earth's orbit (365 days)
 
     // Animate Earth's orbit around the sun
@@ -68,7 +68,7 @@ export function SolarSystem({
             {/* Asteroid Field - random asteroids passing by */}
             <AsteroidField
                 count={75}
-                spread={400}
+                spread={2000} // Increased from 400 to 2000 (5x larger)
                 speed={0.03}
                 minSize={0.05}
                 maxSize={0.4}
@@ -78,22 +78,38 @@ export function SolarSystem({
             {/* Orbital lines */}
             {showOrbitLines && (
                 <group>
-                    <OrbitLine radius={15} color="#666666" opacity={0.2} />{" "}
-                    {/* Mercury */}
-                    <OrbitLine radius={22} color="#888888" opacity={0.2} />{" "}
-                    {/* Venus */}
-                    <OrbitLine radius={30} color="#aaaaaa" opacity={0.3} />{" "}
-                    {/* Earth */}
-                    <OrbitLine radius={45} color="#cc8888" opacity={0.2} />{" "}
-                    {/* Mars */}
-                    <OrbitLine radius={70} color="#ddaa88" opacity={0.2} />{" "}
-                    {/* Jupiter */}
+                    <OrbitLine radius={75} color="#666666" opacity={0.2} />{" "}
+                    {/* Mercury - increased from 15 to 75 */}
                     <OrbitLine
-                        radius={100}
+                        radius={110}
+                        color="#888888"
+                        opacity={0.2}
+                    />{" "}
+                    {/* Venus - increased from 22 to 110 */}
+                    <OrbitLine
+                        radius={150}
+                        color="#aaaaaa"
+                        opacity={0.3}
+                    />{" "}
+                    {/* Earth - increased from 30 to 150 */}
+                    <OrbitLine
+                        radius={225}
+                        color="#cc8888"
+                        opacity={0.2}
+                    />{" "}
+                    {/* Mars - increased from 45 to 225 */}
+                    <OrbitLine
+                        radius={350}
+                        color="#ddaa88"
+                        opacity={0.2}
+                    />{" "}
+                    {/* Jupiter - increased from 70 to 350 */}
+                    <OrbitLine
+                        radius={500}
                         color="#ffcc99"
                         opacity={0.2}
                     />{" "}
-                    {/* Saturn */}
+                    {/* Saturn - increased from 100 to 500 */}
                 </group>
             )}
 

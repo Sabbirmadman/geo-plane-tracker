@@ -62,11 +62,11 @@ export const Scene = memo(function Scene({
 
     const handleCameraTarget = (position: [number, number, number]) => {
         if (controlsRef.current) {
-            // Calculate distance based on object type (larger distance for sun)
+            // Calculate distance based on object type (larger distance for sun, scaled for larger system)
             const distance =
                 position[0] === 0 && position[1] === 0 && position[2] === 0
-                    ? 15
-                    : 8;
+                    ? 75 // Increased from 15 to 75 (5x larger) for sun
+                    : 40; // Increased from 8 to 40 (5x larger) for planets
             controlsRef.current.object.position.set(
                 position[0] + distance,
                 position[1] + distance * 0.6,
@@ -80,7 +80,7 @@ export const Scene = memo(function Scene({
     return (
         <div className="w-full h-screen">
             <Canvas
-                camera={{ position: [0, 10, 40], fov: 45 }}
+                camera={{ position: [0, 50, 200], fov: 45 }} // Moved camera further back from [0, 10, 40]
                 gl={{
                     antialias: true,
                     powerPreference: "high-performance",
@@ -116,8 +116,8 @@ export const Scene = memo(function Scene({
                         enablePan={true}
                         enableZoom={true}
                         enableRotate={true}
-                        minDistance={5}
-                        maxDistance={200}
+                        minDistance={25} // Increased from 5 to 25
+                        maxDistance={1000} // Increased from 200 to 1000
                         enableDamping={true}
                         dampingFactor={0.05}
                     />
@@ -125,11 +125,15 @@ export const Scene = memo(function Scene({
 
                 {/* Rocket for exploration */}
                 {showRocket && (
-                    <Rocket
-                        isActive={true}
-                        isHoverMode={rocketMode === "hover"}
-                        onPositionChange={onRocketPositionChange}
-                    />
+                    <Suspense fallback={null}>
+                        <Rocket
+                            position={[0, 0, 0]} // Start rocket closer to origin instead of [175, 25, 0]
+                            isActive={true}
+                            isHoverMode={rocketMode === "hover"}
+                            onPositionChange={onRocketPositionChange}
+                            scale={0.05} // Much smaller scale for galaxy proportions (was default 0.5)
+                        />
+                    </Suspense>
                 )}
 
                 {/* Solar System */}

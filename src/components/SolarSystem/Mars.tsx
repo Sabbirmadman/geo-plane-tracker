@@ -11,7 +11,7 @@ interface MarsProps {
 
 export function Mars({ onPlanetClick, onCameraTarget }: MarsProps) {
     const orbitRef = useRef<THREE.Group>(null!);
-    const orbitRadius = 45;
+    const orbitRadius = 225; // Increased from 45 to 225 (5x larger)
     const orbitSpeed = 0.0008; // Mars orbit (687 days)
 
     // Animate Mars's orbit around the sun

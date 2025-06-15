@@ -43,10 +43,10 @@ export function EngineParticles({
 
             // Random velocity
             const angle = Math.random() * Math.PI * 2;
-            const radius = Math.random() * 0.2;
+            const radius = Math.random() * 0.1; // Reduced from 0.2 to 0.1 for slower particles
             velocities[i3] = Math.cos(angle) * radius;
             velocities[i3 + 1] = Math.sin(angle) * radius;
-            velocities[i3 + 2] = -Math.random() * 3 - 1; // Exhaust direction
+            velocities[i3 + 2] = -Math.random() * 1.5 - 0.5; // Reduced from 3 to 1.5 for slower exhaust
 
             // Color (hot to cool gradient)
             const heat = Math.random();
@@ -76,7 +76,6 @@ export function EngineParticles({
             },
             vertexShader: `
                 attribute float size;
-                attribute vec3 color;
                 varying vec3 vColor;
                 varying float vOpacity;
                 uniform float time;
@@ -144,18 +143,18 @@ export function EngineParticles({
                 positions[i3 + 2] = 0;
 
                 const angle = Math.random() * Math.PI * 2;
-                const radius = Math.random() * 0.2;
+                const radius = Math.random() * 0.1; // Reduced from 0.2 to 0.1
                 velocities[i3] = Math.cos(angle) * radius;
                 velocities[i3 + 1] = Math.sin(angle) * radius;
-                velocities[i3 + 2] = -Math.random() * 3 - 1;
+                velocities[i3 + 2] = -Math.random() * 1.5 - 0.5; // Reduced from 3 to 1.5
 
                 lifetimes[i] = Math.random() * 2 + 0.5;
             }
 
-            // Add gravity and expansion
-            velocities[i3 + 2] -= delta * 0.5; // Gravity
-            velocities[i3] *= 1.01; // Expansion
-            velocities[i3 + 1] *= 1.01;
+            // Add gravity and expansion (reduced for slower movement)
+            velocities[i3 + 2] -= delta * 0.25; // Reduced from 0.5 to 0.25
+            velocities[i3] *= 1.005; // Reduced from 1.01 to 1.005
+            velocities[i3 + 1] *= 1.005;
         }
 
         geometry.attributes.position.needsUpdate = true;
@@ -199,9 +198,9 @@ export function SmokeTrail({
             positions[i3 + 1] = 0;
             positions[i3 + 2] = 0;
 
-            velocities[i3] = (Math.random() - 0.5) * 0.5;
-            velocities[i3 + 1] = (Math.random() - 0.5) * 0.5;
-            velocities[i3 + 2] = -Math.random() * 1 - 0.5;
+            velocities[i3] = (Math.random() - 0.5) * 0.25; // Reduced from 0.5 to 0.25
+            velocities[i3 + 1] = (Math.random() - 0.5) * 0.25;
+            velocities[i3 + 2] = -Math.random() * 0.5 - 0.25; // Reduced from 1 to 0.5
 
             // Gray smoke color
             const gray = Math.random() * 0.3 + 0.2;
@@ -256,9 +255,9 @@ export function SmokeTrail({
                 positions[i3 + 1] = (Math.random() - 0.5) * 0.2;
                 positions[i3 + 2] = 0;
 
-                velocities[i3] = (Math.random() - 0.5) * 0.5;
-                velocities[i3 + 1] = (Math.random() - 0.5) * 0.5;
-                velocities[i3 + 2] = -Math.random() * 1 - 0.5;
+                velocities[i3] = (Math.random() - 0.5) * 0.25; // Reduced from 0.5 to 0.25
+                velocities[i3 + 1] = (Math.random() - 0.5) * 0.25;
+                velocities[i3 + 2] = -Math.random() * 0.5 - 0.25; // Reduced from 1 to 0.5
 
                 lifetimes[i] = Math.random() * 3 + 1;
             }

@@ -1,8 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars, Grid } from "@react-three/drei";
 import { Suspense } from "react";
-import { Rocket, RocketComponent } from "../components/Rocket/Rocket";
+import {
+    Rocket,
+    RocketComponent,
+    RocketRef,
+} from "../components/Rocket/Rocket";
 import { COMPONENT_STATS } from "../components/Rocket/RocketComponents";
 import {
     PerformanceManager,
@@ -12,7 +16,7 @@ import { TransformControls } from "../components/Rocket/TransformControls";
 import { RocketStorage, RocketDesign } from "../utils/rocketStorage";
 
 export default function RocketEditorPage() {
-    const [rocketScale, setRocketScale] = useState(1);
+    const [rocketScale, setRocketScale] = useState(0.1);
     const [rocketPosition, setRocketPosition] = useState<
         [number, number, number]
     >([0, 0, 0]);
@@ -27,6 +31,11 @@ export default function RocketEditorPage() {
     const [selectedComponent, setSelectedComponent] = useState<string | null>(
         null
     );
+    const [currentSpeed, setCurrentSpeed] = useState(0);
+    const [maxSpeed, setMaxSpeed] = useState(0);
+    const [speedLimit, setSpeedLimit] = useState(50.0);
+    const [enableCameraFollow, setEnableCameraFollow] = useState(false); // Add camera follow toggle
+    const rocketRef = useRef<RocketRef>(null);
     const [rocketComponents, setRocketComponents] = useState<RocketComponent[]>(
         [
             {
@@ -102,10 +111,39 @@ export default function RocketEditorPage() {
         return () => clearInterval(interval);
     }, []);
 
-    // Load saved designs on mount
+    // Load saved designs on mount and try to load last used rocket
     useEffect(() => {
-        setSavedDesigns(RocketStorage.getAllDesigns());
+        const designs = RocketStorage.getAllDesigns();
+        setSavedDesigns(designs);
+
+        // Try to load the last used rocket design
+        const lastUsedDesignId = localStorage.getItem("lastUsedRocketDesign");
+        if (lastUsedDesignId) {
+            const lastUsedDesign = RocketStorage.loadDesign(lastUsedDesignId);
+            if (lastUsedDesign) {
+                setRocketComponents(lastUsedDesign.components);
+                setRocketName(lastUsedDesign.name);
+                setCurrentDesignId(lastUsedDesignId);
+            }
+        } else if (designs.length > 0) {
+            // If no last used design, load the most recently modified one
+            const mostRecent = designs.sort(
+                (a, b) =>
+                    new Date(b.lastModified).getTime() -
+                    new Date(a.lastModified).getTime()
+            )[0];
+            setRocketComponents(mostRecent.components);
+            setRocketName(mostRecent.name);
+            setCurrentDesignId(mostRecent.id);
+        }
     }, []);
+
+    // Save current design ID when it changes
+    useEffect(() => {
+        if (currentDesignId) {
+            localStorage.setItem("lastUsedRocketDesign", currentDesignId);
+        }
+    }, [currentDesignId]);
 
     // Track Shift key state for camera override
     useEffect(() => {
@@ -133,6 +171,7 @@ export default function RocketEditorPage() {
     const handleRocketPositionChange = useCallback(
         (position: [number, number, number]) => {
             setRocketPosition(position);
+            // Update speed data when position changes (we'll get this from the rocket component)
         },
         []
     );
@@ -495,6 +534,8 @@ export default function RocketEditorPage() {
             setCurrentDesignId(id);
             setSelectedComponent(null);
             setShowLoadDialog(false);
+            // Save as last used design
+            localStorage.setItem("lastUsedRocketDesign", id);
         }
     }, []);
 
@@ -553,6 +594,8 @@ export default function RocketEditorPage() {
         setRocketName("New Rocket");
         setCurrentDesignId(null);
         setSelectedComponent(null);
+        // Clear last used design
+        localStorage.removeItem("lastUsedRocketDesign");
     }, []);
 
     const duplicateRocket = useCallback(() => {
@@ -565,11 +608,30 @@ export default function RocketEditorPage() {
         setSavedDesigns(RocketStorage.getAllDesigns());
     }, [rocketName, rocketComponents]);
 
+    // Update speed data from rocket when active
+    useEffect(() => {
+        if (!isRocketActive || !rocketRef.current) return;
+
+        const updateSpeed = () => {
+            if (rocketRef.current) {
+                setCurrentSpeed(rocketRef.current.getCurrentSpeed());
+                setMaxSpeed(rocketRef.current.getMaxSpeed());
+                setSpeedLimit(rocketRef.current.getSpeedLimit());
+            }
+            if (isRocketActive) {
+                requestAnimationFrame(updateSpeed);
+            }
+        };
+
+        const animationId = requestAnimationFrame(updateSpeed);
+        return () => cancelAnimationFrame(animationId);
+    }, [isRocketActive]);
+
     return (
         <div className="relative w-full h-screen bg-gray-600 overflow-hidden">
             {/* 3D Scene */}
             <Canvas
-                camera={{ position: [5, 5, 10], fov: 45 }}
+                camera={{ position: [2, 2, 4], fov: 45 }} // Changed from [5, 5, 10] to [2, 2, 4] - closer view
                 gl={{
                     antialias: true,
                     powerPreference: "high-performance",
@@ -638,8 +700,8 @@ export default function RocketEditorPage() {
                         !isRocketActive &&
                         (isShiftPressed || !selectedComponent)
                     }
-                    minDistance={2}
-                    maxDistance={50}
+                    minDistance={0.5}
+                    maxDistance={20}
                     enableDamping={true}
                     dampingFactor={0.05}
                     target={rocketPosition}
@@ -648,6 +710,7 @@ export default function RocketEditorPage() {
                 {/* Rocket */}
                 <Suspense fallback={null}>
                     <Rocket
+                        ref={rocketRef}
                         position={rocketPosition}
                         scale={rocketScale}
                         isActive={isRocketActive}
@@ -657,6 +720,7 @@ export default function RocketEditorPage() {
                         selectedComponentId={selectedComponent}
                         onComponentSelect={handleComponentSelect}
                         onComponentUpdate={handleComponentUpdate}
+                        enableCameraFollow={enableCameraFollow} // Pass camera follow setting
                     />
                 </Suspense>
 
@@ -714,9 +778,89 @@ export default function RocketEditorPage() {
                 )}
             </Canvas>
 
-            {/* Performance Monitor */}
+            {/* Speed Meter - only show when rocket is active */}
+            {isRocketActive && (
+                <div className="absolute top-4 right-4 z-30 bg-black bg-opacity-90 text-white p-4 rounded-lg text-sm min-w-[200px]">
+                    <div className="mb-3">
+                        <h3 className="text-lg font-bold text-blue-400 mb-1">
+                            Speed Monitor
+                        </h3>
+                    </div>
+
+                    <div className="space-y-3">
+                        {/* Current Speed */}
+                        <div>
+                            <div className="text-xs font-semibold text-green-300 mb-1">
+                                Current Speed
+                            </div>
+                            <div className="text-xl font-mono text-green-400">
+                                {currentSpeed.toFixed(2)} u/s
+                            </div>
+                        </div>
+
+                        {/* Max Speed Reached */}
+                        <div>
+                            <div className="text-xs font-semibold text-yellow-300 mb-1">
+                                Max Speed Reached
+                            </div>
+                            <div className="text-lg font-mono text-yellow-400">
+                                {maxSpeed.toFixed(2)} u/s
+                            </div>
+                        </div>
+
+                        {/* Speed Limit */}
+                        <div>
+                            <div className="text-xs font-semibold text-red-300 mb-1">
+                                Speed Limit (
+                                {rocketMode === "hover" ? "Hover" : "Rocket"})
+                            </div>
+                            <div className="text-lg font-mono text-red-400">
+                                {speedLimit.toFixed(1)} u/s
+                            </div>
+                        </div>
+
+                        {/* Speed Bar */}
+                        <div>
+                            <div className="text-xs font-semibold text-blue-300 mb-2">
+                                Speed Indicator
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-3 mb-1">
+                                <div
+                                    className="bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 h-3 rounded-full transition-all duration-200"
+                                    style={{
+                                        width: `${Math.min(
+                                            (currentSpeed / speedLimit) * 100,
+                                            100
+                                        )}%`,
+                                    }}
+                                ></div>
+                            </div>
+                            <div className="text-xs text-gray-400">
+                                {((currentSpeed / speedLimit) * 100).toFixed(1)}
+                                % of limit
+                            </div>
+                        </div>
+
+                        {/* Reset Max Speed Button */}
+                        <button
+                            onClick={() => {
+                                setMaxSpeed(0);
+                                rocketRef.current?.resetMaxSpeed();
+                            }}
+                            className="w-full py-1 text-xs bg-gray-600 hover:bg-gray-500 rounded transition-colors"
+                        >
+                            Reset Max Speed
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Performance Monitor - moved down to avoid overlap */}
             {showPerformance && performanceStats && (
-                <div className="absolute top-4 right-4 z-30 bg-black bg-opacity-90 text-white p-3 rounded-lg text-xs font-mono">
+                <div
+                    className="absolute top-4 right-4 z-30 bg-black bg-opacity-90 text-white p-3 rounded-lg text-xs font-mono"
+                    style={{ marginTop: isRocketActive ? "280px" : "0px" }}
+                >
                     <div className="mb-2 font-bold">Performance Stats</div>
                     <div>FPS: {performanceStats.fps}</div>
                     <div>
@@ -822,6 +966,12 @@ export default function RocketEditorPage() {
                                     Reset Position
                                 </button>
                             </div>
+                            {isRocketActive && (
+                                <div className="text-xs text-yellow-400 mt-2">
+                                    Click to activate mouse look. Press ESC to
+                                    exit.
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1442,13 +1592,22 @@ export default function RocketEditorPage() {
                         </div>
                         <div className="text-xs text-gray-300 space-y-1">
                             <div>
-                                <strong>Movement:</strong> WASD + Space/Shift
+                                <strong>Movement:</strong> W/S - Forward/Back,
+                                A/D - Strafe, Space/Shift - Up/Down
                             </div>
                             <div>
-                                <strong>Rotation:</strong> Arrow Keys + Q/E
+                                <strong>Mouse Look:</strong> Move mouse to
+                                pitch/yaw
+                            </div>
+                            <div>
+                                <strong>Roll:</strong> Q/E keys
                             </div>
                             <div className="text-yellow-400">
-                                Camera follows rocket when active
+                                Click to enable mouse look, ESC to disable
+                            </div>
+                            <div className="text-cyan-400 border-t border-gray-600 pt-1 mt-1">
+                                Speed: {currentSpeed.toFixed(2)} /{" "}
+                                {speedLimit.toFixed(1)} u/s
                             </div>
                         </div>
                     </div>
@@ -1602,19 +1761,22 @@ export default function RocketEditorPage() {
                     {/* Scale Control */}
                     <div>
                         <label className="text-xs font-medium mb-1 block">
-                            Rocket Scale: {rocketScale.toFixed(1)}
+                            Rocket Scale: {rocketScale.toFixed(2)}
                         </label>
                         <input
                             type="range"
-                            min={0.1}
-                            max={5}
-                            step={0.1}
+                            min={0.01}
+                            max={1}
+                            step={0.01}
                             value={rocketScale}
                             onChange={(e) =>
                                 setRocketScale(parseFloat(e.target.value))
                             }
                             className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
                         />
+                        <div className="text-xs text-gray-400 mt-1">
+                            Galaxy scale: 0.01-1.0
+                        </div>
                     </div>
 
                     {/* Lighting Control */}

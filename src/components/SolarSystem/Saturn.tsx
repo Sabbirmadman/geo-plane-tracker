@@ -14,11 +14,11 @@ export function Saturn({ onPlanetClick, onCameraTarget }: SaturnProps) {
     const orbitRef = useRef<THREE.Group>(null!);
     const planetGroupRef = useRef<THREE.Group>(null!);
     const [cameraDistance, setCameraDistance] = useState<number>(1000);
-    const orbitRadius = 100;
+    const orbitRadius = 500; // Increased from 100 to 500 (5x larger)
     const orbitSpeed = 0.0002; // Saturn orbit (29 years)
 
     // Distance threshold for switching between ring types
-    const RING_SWITCH_DISTANCE = 50;
+    const RING_SWITCH_DISTANCE = 250; // Increased from 50 to 250 (5x larger)
 
     // Animate Saturn's orbit around the sun
     useFrame(({ camera }) => {
