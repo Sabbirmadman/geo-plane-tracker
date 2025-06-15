@@ -1,9 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
-import { Suspense, memo } from "react";
-import { Earth } from "../Earth/Earth";
-import { FlightTracker } from "../FlightTracker/FlightTracker";
-import { FlightData } from "../../utils/flightData";
+import { Suspense, memo, useRef } from "react";
+import { SolarSystem } from "../SolarSystem/SolarSystem";
 
 interface SceneProps {
     isNightTexture?: boolean;
@@ -11,18 +9,14 @@ interface SceneProps {
     showStars?: boolean;
     brightness?: number;
     ambientLightIntensity?: number;
-    directionalLightIntensity?: number;
     borderThickness?: number;
     showBorders?: boolean;
     earthQuality?: number;
-    showFlights?: boolean;
-    showFlightPaths?: boolean;
-    maxFlights?: number;
-    flightUpdateInterval?: number;
     borderOnlyMode?: boolean;
-    onFlightSelect?: (flight: FlightData | null) => void;
     borderColor?: string;
-    airplaneScale?: number;
+    showOrbitLines?: boolean;
+    sunIntensity?: number;
+    onPlanetClick?: (position: [number, number, number]) => void;
 }
 
 export const Scene = memo(function Scene({
@@ -30,24 +24,40 @@ export const Scene = memo(function Scene({
     showClouds = true,
     showStars = true,
     brightness = 1,
-    ambientLightIntensity = 0.2,
-    directionalLightIntensity = 1,
+    ambientLightIntensity = 0.1,
     borderThickness = 1.5,
     showBorders = true,
     earthQuality = 64,
-    showFlights = false,
-    showFlightPaths = false,
-    maxFlights = 50,
-    flightUpdateInterval = 30000,
     borderOnlyMode = false,
     borderColor = "#00ff88",
-    airplaneScale = 1,
-    onFlightSelect,
+    showOrbitLines = true,
+    sunIntensity = 1.5,
+    onPlanetClick,
 }: SceneProps) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const controlsRef = useRef<any>(null);
+
+    const handleCameraTarget = (position: [number, number, number]) => {
+        if (controlsRef.current) {
+            // Calculate distance based on object type (larger distance for sun)
+            const distance =
+                position[0] === 0 && position[1] === 0 && position[2] === 0
+                    ? 15
+                    : 8;
+            controlsRef.current.object.position.set(
+                position[0] + distance,
+                position[1] + distance * 0.6,
+                position[2] + distance
+            );
+            controlsRef.current.target.set(...position);
+            controlsRef.current.update();
+        }
+    };
+
     return (
         <div className="w-full h-screen">
             <Canvas
-                camera={{ position: [0, 0, 8], fov: 45 }}
+                camera={{ position: [0, 10, 40], fov: 45 }}
                 gl={{
                     antialias: true,
                     powerPreference: "high-performance",
@@ -55,62 +65,50 @@ export const Scene = memo(function Scene({
                     stencil: false,
                     depth: true,
                 }}
-                dpr={[1, 2]} // Limit pixel ratio for performance
+                dpr={[1, 2]}
             >
-                {/* Lighting */}
+                {/* Minimal ambient lighting - Sun provides main lighting */}
                 <ambientLight intensity={ambientLightIntensity * brightness} />
-                <directionalLight
-                    position={[5, 3, 5]}
-                    intensity={directionalLightIntensity * brightness}
-                    castShadow
-                    shadow-mapSize-width={1024}
-                    shadow-mapSize-height={1024}
-                />
 
                 {/* Background stars */}
                 {showStars && (
                     <Stars
-                        radius={300}
-                        depth={60}
-                        count={15000} // Reduced for performance
-                        factor={6}
+                        radius={500}
+                        depth={100}
+                        count={20000}
+                        factor={8}
                         saturation={0}
                         fade={true}
                     />
                 )}
 
-                {/* Camera controls - increased zoom capability */}
+                {/* Camera controls */}
                 <OrbitControls
+                    ref={controlsRef}
                     enablePan={true}
                     enableZoom={true}
                     enableRotate={true}
-                    minDistance={2.5} // Allow closer zoom
-                    maxDistance={50} // Allow further zoom out
+                    minDistance={5}
+                    maxDistance={200}
                     enableDamping={true}
                     dampingFactor={0.05}
                 />
 
-                {/* Flight Tracker */}
-                <FlightTracker
-                    showFlights={showFlights}
-                    showFlightPaths={showFlightPaths}
-                    maxFlights={maxFlights}
-                    updateInterval={flightUpdateInterval}
-                    onFlightSelect={onFlightSelect}
-                    airplaneScale={airplaneScale}
-                />
-
-                {/* Earth */}
+                {/* Solar System */}
                 <Suspense fallback={null}>
-                    <Earth
+                    <SolarSystem
+                        showOrbitLines={showOrbitLines}
                         isNightTexture={isNightTexture}
                         showClouds={showClouds}
-                        showCountryBorders={showBorders}
                         brightness={brightness}
                         borderThickness={borderThickness}
-                        quality={earthQuality}
+                        showBorders={showBorders}
+                        earthQuality={earthQuality}
                         borderOnlyMode={borderOnlyMode}
                         borderColor={borderColor}
+                        sunIntensity={sunIntensity}
+                        onPlanetClick={onPlanetClick}
+                        onCameraTarget={handleCameraTarget}
                     />
                 </Suspense>
             </Canvas>
