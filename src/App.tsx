@@ -1,6 +1,6 @@
 import "./App.css";
 import AboutPage from "./pages/AboutPage";
-import EarthView from "./pages/EarthView";
+import FPSPage from "./pages/FPSPage";
 import HomePage from "./pages/HomePage";
 import { Routes, Route } from "react-router-dom";
 
@@ -8,7 +8,7 @@ function App() {
     return (
         <div>
             <Routes>
-                <Route path="/" element={<EarthView />} />
+                <Route path="/" element={<FPSPage />} />
                 <Route path="/home" element={<HomePage />} />
                 <Route path="/about" element={<AboutPage />} />
             </Routes>
