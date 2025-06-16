@@ -5,12 +5,14 @@ interface ObstacleBoxProps {
   position: [number, number, number];
   size?: [number, number, number];
   color?: string;
+  showCollider?: boolean;
 }
 
 export function ObstacleBox({ 
   position, 
   size = [2, 2, 2], 
-  color = "#8B4513" 
+  color = "#8B4513",
+  showCollider = false
 }: ObstacleBoxProps) {
   const [ref] = useBox<THREE.Mesh>(() => ({
     position,
@@ -22,9 +24,25 @@ export function ObstacleBox({
   }));
 
   return (
-    <mesh ref={ref} castShadow receiveShadow>
-      <boxGeometry args={size} />
-      <meshLambertMaterial color={color} />
-    </mesh>
+    <group>
+      {/* Main obstacle mesh */}
+      <mesh ref={ref} castShadow receiveShadow>
+        <boxGeometry args={size} />
+        <meshLambertMaterial color={color} />
+      </mesh>
+      
+      {/* Collider wireframe visualization */}
+      {showCollider && (
+        <mesh position={position}>
+          <boxGeometry args={size} />
+          <meshBasicMaterial 
+            color="#00ff00" 
+            wireframe={true} 
+            transparent={true} 
+            opacity={0.5} 
+          />
+        </mesh>
+      )}
+    </group>
   );
 }

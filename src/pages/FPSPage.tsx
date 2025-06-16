@@ -1,21 +1,44 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useCallback, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/cannon';
 import { Sky } from '@react-three/drei';
+import * as THREE from 'three';
 import { Crosshair } from '../components/FPS/Crosshair';
 import { Ground } from '../components/FPS/Ground';
 import { Player } from '../components/FPS/Player';
 import { ObstacleBox } from '../components/FPS/ObstacleBox';
 import { PerformanceMonitor } from '../components/FPS/PerformanceMonitor';
 
-
 export default function FPSPage() {
+  const [playerPosition, setPlayerPosition] = useState(new THREE.Vector3(0, 1, 0));
+  const [playerTakeDamage, setPlayerTakeDamage] = useState<((damage: number, hitPosition: THREE.Vector3) => boolean) | null>(null);
+  const [showColliders, setShowColliders] = useState(false);
+
+  const handlePlayerUpdate = useCallback((position: THREE.Vector3, takeDamageFunc: (damage: number, hitPosition: THREE.Vector3) => boolean) => {
+    setPlayerPosition(position);
+    setPlayerTakeDamage(() => takeDamageFunc);
+  }, []);
+
+  // Add F8 key handler for collider toggle
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code === 'F8') {
+        setShowColliders(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   return (
     <div className="relative w-full h-screen bg-gray-900 overflow-hidden">
       {/* Crosshair */}
       <Crosshair />
       
-      {/* Performance Monitor - moved outside Canvas */}
+      {/* Performance Monitor */}
       <PerformanceMonitor />
       
       {/* Game Info */}
@@ -26,64 +49,67 @@ export default function FPSPage() {
             <p>🎮 WASD: Move</p>
             <p>🖱️ Mouse: Look around</p>
             <p>🔫 Left Click: Shoot</p>
-            <p>🎯 Cylinder Physics Combat</p>
+            <p>🦘 Space: Jump</p>
+            <p>🔍 F8: Toggle Colliders</p>
             <p>📱 Click to lock mouse</p>
             <p>🚪 ESC: Unlock mouse</p>
           </div>
         </div>
       </div>
 
-      {/* 3D Scene */}
+      {/* 3D Scene with performance optimizations */}
       <Canvas
         camera={{ 
           position: [0, 5, 10], 
           fov: 75,
           near: 0.1,
-          far: 1000
+          far: 50 // Reduced far plane significantly
         }}
         gl={{
-          antialias: true,
+          antialias: false,
           powerPreference: "high-performance",
+          alpha: false,
+          stencil: false,
+          depth: true,
+          logarithmicDepthBuffer: false, // Disable for better performance
         }}
+        dpr={[0.5, 1]}
+        frameloop="demand" // Only render when needed
+        performance={{ min: 0.2 }} // Aggressive performance scaling
       >
-        {/* Lighting */}
-        <ambientLight intensity={0.3} />
-        <directionalLight 
-          position={[10, 10, 5]} 
-          intensity={1} 
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-          shadow-camera-far={50}
-          shadow-camera-left={-20}
-          shadow-camera-right={20}
-          shadow-camera-top={20}
-          shadow-camera-bottom={-20}
-        />
+        {/* Minimal lighting */}
+        <ambientLight intensity={0.6} />
+        
+        {/* Simplified sky without complex sun positioning */}
+        <Sky />
 
-        {/* Sky */}
-        <Sky sunPosition={[100, 20, 100]} />
-
-        {/* Physics World */}
-        <Physics gravity={[0, -30, 0]} broadphase="SAP">
+        {/* Physics World with higher update frequency */}
+        <Physics 
+          gravity={[0, -25, 0]}
+          broadphase="Naive"
+          tolerance={0.001}
+          iterations={8}  // Increased from 5 for smoother physics
+          allowSleep={false} // Disable sleep for consistent movement
+        >
           <Suspense fallback={null}>
-            {/* Ground with Grid */}
-            <Ground />
+            <Ground showCollider={showColliders} />
             
-            {/* Player Sphere */}
-            <Player />
+            <Player 
+              onPlayerUpdate={handlePlayerUpdate}
+              showCollider={showColliders}
+            />
             
-            {/* Physics-enabled obstacle boxes */}
-            <ObstacleBox position={[5, 1, 0]} />
-            <ObstacleBox position={[-5, 1, 0]} />
-            <ObstacleBox position={[0, 1, -5]} />
-            <ObstacleBox position={[0, 1, 5]} />
-            <ObstacleBox position={[3, 1, 3]} size={[1, 3, 1]} color="#654321" />
-            <ObstacleBox position={[-3, 1, -3]} size={[1, 3, 1]} color="#654321" />
+            {/* Arena boundaries with debug visualization */}
+            <ObstacleBox position={[0, 3, 20]} size={[40, 6, 1]} color="#D2B48C" showCollider={showColliders} />  
+            <ObstacleBox position={[0, 3, -20]} size={[40, 6, 1]} color="#D2B48C" showCollider={showColliders} /> 
+            <ObstacleBox position={[20, 3, 0]} size={[1, 6, 40]} color="#D2B48C" showCollider={showColliders} />  
+            <ObstacleBox position={[-20, 3, 0]} size={[1, 6, 40]} color="#D2B48C" showCollider={showColliders} /> 
+            
+            {/* Reference object with debug visualization */}
+            <ObstacleBox position={[0, 1, 0]} size={[1, 1, 1]} color="#A0522D" showCollider={showColliders} />
           </Suspense>
         </Physics>
       </Canvas>
     </div>
   );
 }
-

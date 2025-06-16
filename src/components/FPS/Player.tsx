@@ -4,33 +4,30 @@ import * as THREE from 'three';
 import { usePlayerMovement } from '../../hooks/usePlayerMovement';
 import { useCameraController } from '../../hooks/useCameraController';
 import { useWeapon } from '../../hooks/useWeapon';
+import { usePlayerHealth } from '../../hooks/usePlayerHealth';
 import { MovementConfig } from '../../types/player';
 import { WeaponConfig } from '../../types/weapon';
 import { Gun } from './Gun';
 import { BulletParticles } from './BulletParticles';
-import { useState, useRef } from 'react';
+import { HealthBar } from './HealthBar';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
-export function Player() {
+interface PlayerProps {
+  onPlayerUpdate?: (position: THREE.Vector3, takeDamage: (damage: number, hitPosition: THREE.Vector3) => boolean) => void;
+  showCollider?: boolean;
+}
+
+export function Player({ onPlayerUpdate, showCollider = false }: PlayerProps) {
   const [isMouseDown, setIsMouseDown] = useState(false);
   const lastTime = useRef(performance.now());
   
-  // Physics objects with proper typing
-  const [playerRef, playerApi] = useSphere<THREE.Mesh>(() => ({
-    mass: 1,
-    position: [0, 5, 0],
-    material: {
-      friction: 0.1,
-      restitution: 0.1,
-    },
-    fixedRotation: true,
-    linearDamping: 0.4,
-    angularDamping: 1,
-  }));
-
-  // Configuration
+  // Enhanced configuration with jump settings
   const movementConfig: MovementConfig = {
-    moveSpeed: 15,
+    moveSpeed: 12,
     maxSpeed: 12,
+    jumpForce: 12,
+    acceleration: 0.2,
+    deceleration: 0.15,
   };
 
   const cameraConfig = {
@@ -47,8 +44,21 @@ export function Player() {
     particleSize: 0.05,
   };
 
-  // Custom hooks
-  const { position, updateMovement } = usePlayerMovement(
+  // Physics objects optimized for smooth movement with proper collision
+  const [playerRef, playerApi] = useSphere<THREE.Mesh>(() => ({
+    mass: 1,
+    position: [0, 5, 0],
+    material: {
+      friction: 0.1,
+      restitution: 0.1,
+    },
+    fixedRotation: true,
+    linearDamping: 0.05, // Very low damping for responsive movement
+    angularDamping: 1,
+  }));
+
+  // Enhanced movement hook with jump
+  const { position, updateMovement, isGrounded } = usePlayerMovement(
     playerApi,
     movementConfig
   );
@@ -64,8 +74,11 @@ export function Player() {
   
   const { bullets, updateBullets, handleAutoFire } = useWeapon(weaponConfig);
 
+  // Add health system
+  const { health, maxHealth, takeDamage } = usePlayerHealth(100);
+
   // Mouse shooting controls
-  useState(() => {
+  useEffect(() => {
     const handleMouseDown = (event: MouseEvent) => {
       if (event.button === 0 && document.pointerLockElement) {
         setIsMouseDown(true);
@@ -85,7 +98,13 @@ export function Player() {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  });
+  }, []);
+
+  // Expose takeDamage function for enemy hits
+  const handleTakeDamage = useCallback((damage: number, hitPosition: THREE.Vector3) => {
+    const died = takeDamage(damage);
+    return died;
+  }, [takeDamage]);
 
   // Main update loop
   useFrame(() => {
@@ -111,6 +130,11 @@ export function Player() {
     const bulletSpawn = getBulletSpawnPoint(playerPosition);
     const bulletDirection = getBulletDirection();
     handleAutoFire(isMouseDown, bulletSpawn, bulletDirection);
+
+    // Notify parent component of player updates
+    if (onPlayerUpdate) {
+      onPlayerUpdate(playerPosition, handleTakeDamage);
+    }
   });
 
   const playerPosition = new THREE.Vector3(...position.current);
@@ -119,11 +143,24 @@ export function Player() {
 
   return (
     <group>
-      {/* Player cylinder body - now faces camera direction */}
+      {/* Player cylinder body with ground indicator */}
       <mesh ref={playerRef} castShadow rotation={[0, rotation.horizontal, 0]}>
         <cylinderGeometry args={[0.4, 0.4, 1.0, 8]} />
-        <meshLambertMaterial color="#00ff88" />
+        <meshLambertMaterial color={isGrounded() ? "#00ff88" : "#ff8800"} />
       </mesh>
+      
+      {/* Player collider visualization */}
+      {showCollider && (
+        <mesh position={[playerPosition.x, playerPosition.y, playerPosition.z]}>
+          <cylinderGeometry args={[0.4, 0.4, 1.0, 8]} />
+          <meshBasicMaterial 
+            color="#ff0000" 
+            wireframe={true} 
+            transparent={true} 
+            opacity={0.7} 
+          />
+        </mesh>
+      )}
       
       {/* Gun positioned and rotated correctly */}
       <group 
@@ -135,8 +172,16 @@ export function Player() {
       
       {/* Bullet particles */}
       <BulletParticles bullets={bullets} particleSize={weaponConfig.particleSize} />
+      
+      {/* Player health bar */}
+      <HealthBar 
+        position={playerPosition}
+        health={health}
+        maxHealth={maxHealth}
+        isEnemy={false}
+      />
     </group>
   );
 }
-      
-      
+
+

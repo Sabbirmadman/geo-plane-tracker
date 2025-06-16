@@ -9,6 +9,7 @@ export function usePlayerMovement(
 ) {
   const velocity = useRef<[number, number, number]>([0, 0, 0]);
   const position = useRef<[number, number, number]>([0, 5, 0]);
+  const isGrounded = useRef(false);
   const keys = useRef<MovementKeys>({
     w: false,
     a: false,
@@ -20,6 +21,8 @@ export function usePlayerMovement(
   useEffect(() => {
     const unsubscribeVelocity = playerApi.velocity.subscribe((v: [number, number, number]) => {
       velocity.current = v;
+      // Check if grounded based on vertical velocity
+      isGrounded.current = Math.abs(v[1]) < 0.1 && position.current[1] < 2;
     });
     
     const unsubscribePosition = playerApi.position.subscribe((p: [number, number, number]) => {
@@ -32,7 +35,7 @@ export function usePlayerMovement(
     };
   }, [playerApi]);
 
-  // Keyboard controls
+  // Enhanced keyboard controls with jump
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       switch (event.code) {
@@ -47,6 +50,12 @@ export function usePlayerMovement(
           break;
         case 'KeyD':
           keys.current.d = true;
+          break;
+        case 'Space':
+          event.preventDefault();
+          if (isGrounded.current) {
+            playerApi.velocity.set(velocity.current[0], 12, velocity.current[2]); // Jump
+          }
           break;
         case 'Escape':
           document.exitPointerLock();
@@ -78,55 +87,63 @@ export function usePlayerMovement(
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [playerApi]);
 
-  // Movement logic updated to use camera controller vectors
+  // Smooth movement system
   const updateMovement = (forwardVector: THREE.Vector3, rightVector: THREE.Vector3): void => {
-    // Calculate movement vector
-    const moveVector = new THREE.Vector3();
+    // Calculate input direction
+    let inputX = 0;
+    let inputZ = 0;
     
-    if (keys.current.w) moveVector.add(forwardVector);
-    if (keys.current.s) moveVector.sub(forwardVector);
-    if (keys.current.a) moveVector.sub(rightVector); // A = move left (subtract right vector)
-    if (keys.current.d) moveVector.add(rightVector); // D = move right (add right vector)
-    
-    // Apply movement with speed limiting
-    if (moveVector.length() > 0) {
-      moveVector.normalize();
-      
-      const desiredVelocity = moveVector.multiplyScalar(config.moveSpeed);
-      const currentHorizontalVel = new THREE.Vector2(velocity.current[0], velocity.current[2]);
-      const currentSpeed = currentHorizontalVel.length();
-      
-      const velocityDot = currentHorizontalVel.dot(new THREE.Vector2(desiredVelocity.x, desiredVelocity.z));
-      
-      if (currentSpeed < config.maxSpeed || velocityDot < 0) {
-        const force: [number, number, number] = [
-          (desiredVelocity.x - velocity.current[0]) * 1.5,
-          0,
-          (desiredVelocity.z - velocity.current[2]) * 1.5
-        ];
-        
-        playerApi.applyImpulse(force, [0, 0, 0]);
-      }
-    } else {
-      // Apply friction
-      const friction = 0.85;
-      playerApi.velocity.set(
-        velocity.current[0] * friction,
-        velocity.current[1],
-        velocity.current[2] * friction
-      );
+    if (keys.current.w) {
+      inputX += forwardVector.x;
+      inputZ += forwardVector.z;
+    }
+    if (keys.current.s) {
+      inputX -= forwardVector.x;
+      inputZ -= forwardVector.z;
+    }
+    if (keys.current.a) {
+      inputX -= rightVector.x;
+      inputZ -= rightVector.z;
+    }
+    if (keys.current.d) {
+      inputX += rightVector.x;
+      inputZ += rightVector.z;
     }
 
-    // Speed limiter
-    const horizontalSpeed = Math.sqrt(velocity.current[0] ** 2 + velocity.current[2] ** 2);
+    // Normalize input for diagonal movement
+    const inputMagnitude = Math.sqrt(inputX * inputX + inputZ * inputZ);
+    if (inputMagnitude > 0) {
+      inputX /= inputMagnitude;
+      inputZ /= inputMagnitude;
+    }
+
+    // Calculate target velocity
+    const targetVelX = inputX * config.moveSpeed;
+    const targetVelZ = inputZ * config.moveSpeed;
+
+    // Current horizontal velocity
+    const currentVelX = velocity.current[0];
+    const currentVelZ = velocity.current[2];
+
+    // Smooth acceleration/deceleration
+    const acceleration = inputMagnitude > 0 ? 0.2 : 0.15; // Faster acceleration, slower deceleration
+    
+    const newVelX = THREE.MathUtils.lerp(currentVelX, targetVelX, acceleration);
+    const newVelZ = THREE.MathUtils.lerp(currentVelZ, targetVelZ, acceleration);
+
+    // Apply velocity while preserving Y component (for gravity and jumping)
+    playerApi.velocity.set(newVelX, velocity.current[1], newVelZ);
+
+    // Speed limiting
+    const horizontalSpeed = Math.sqrt(newVelX * newVelX + newVelZ * newVelZ);
     if (horizontalSpeed > config.maxSpeed) {
       const scale = config.maxSpeed / horizontalSpeed;
       playerApi.velocity.set(
-        velocity.current[0] * scale,
+        newVelX * scale,
         velocity.current[1],
-        velocity.current[2] * scale
+        newVelZ * scale
       );
     }
   };
@@ -134,6 +151,7 @@ export function usePlayerMovement(
   return {
     velocity,
     position,
+    isGrounded: () => isGrounded.current,
     updateMovement,
   };
 }

@@ -32,12 +32,35 @@ export function useCameraController(config: CameraControllerConfig) {
     forwardVector: new THREE.Vector3(0, 0, -1)
   });
 
-  // Mouse input handling
+  // Define updateDirectionVectors BEFORE using it
+  const updateDirectionVectors = useCallback(() => {
+    const { horizontal, vertical } = cameraState.current.rotation;
+    
+    // Calculate forward direction (where camera/gun points)
+    cameraState.current.direction.set(
+      Math.sin(horizontal) * Math.cos(vertical),
+      -Math.sin(vertical),
+      Math.cos(horizontal) * Math.cos(vertical)
+    );
+
+    // Calculate right vector for movement - FIXED
+    cameraState.current.rightVector.set(
+      -Math.cos(horizontal), // Negative to fix left/right direction
+      0,
+      Math.sin(horizontal)
+    );
+
+    // Calculate forward vector for movement (no vertical component)
+    cameraState.current.forwardVector.set(
+      Math.sin(horizontal),
+      0,
+      Math.cos(horizontal)
+    );
+  }, []);
+
+  // Mouse input handling - NOW updateDirectionVectors is defined
   useEffect(() => {
-    const canvas = camera.parent?.children[0] ? 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (camera.parent.children[0] as any).gl?.domElement : 
-      document.querySelector('canvas');
+    const canvas = document.querySelector('canvas');
     
     if (!canvas) return;
 
@@ -77,32 +100,7 @@ export function useCameraController(config: CameraControllerConfig) {
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
       document.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [isPointerLocked, config.mouseSensitivity, config.verticalClamp]);
-
-  const updateDirectionVectors = useCallback(() => {
-    const { horizontal, vertical } = cameraState.current.rotation;
-    
-    // Calculate forward direction (where camera/gun points)
-    cameraState.current.direction.set(
-      Math.sin(horizontal) * Math.cos(vertical),
-      -Math.sin(vertical),
-      Math.cos(horizontal) * Math.cos(vertical)
-    );
-
-    // Calculate right vector for movement - FIXED
-    cameraState.current.rightVector.set(
-      -Math.cos(horizontal), // Negative to fix left/right direction
-      0,
-      Math.sin(horizontal)
-    );
-
-    // Calculate forward vector for movement (no vertical component)
-    cameraState.current.forwardVector.set(
-      Math.sin(horizontal),
-      0,
-      Math.cos(horizontal)
-    );
-  }, []);
+  }, [isPointerLocked, config.mouseSensitivity, config.verticalClamp, updateDirectionVectors]);
 
   const updateCamera = useCallback((playerPosition: THREE.Vector3) => {
     // Update direction vectors

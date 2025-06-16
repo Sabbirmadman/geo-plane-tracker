@@ -15,15 +15,15 @@ export function PerformanceMonitor() {
     const updatePerformance = () => {
       frameCount.current++;
       const currentTime = performance.now();
-      const deltaTime = currentTime - lastTime.current;
       
-      // Calculate FPS every 10 frames for stability
-      if (frameCount.current % 10 === 0) {
-        const currentFPS = 1000 / deltaTime * 10;
+      // Calculate FPS every 30 frames for better stability and performance
+      if (frameCount.current % 30 === 0) {
+        const deltaTime = currentTime - lastTime.current;
+        const currentFPS = 30000 / deltaTime; // 30 frames * 1000ms
         fpsArray.current.push(currentFPS);
         
-        // Keep only last 30 readings for smoothing
-        if (fpsArray.current.length > 30) {
+        // Keep only last 10 readings for smoothing
+        if (fpsArray.current.length > 10) {
           fpsArray.current.shift();
         }
         
@@ -32,8 +32,8 @@ export function PerformanceMonitor() {
         setFps(Math.round(avgFPS));
         setFrameTime(Number((1000 / avgFPS).toFixed(2)));
         
-        // Get memory usage if available
-        if ('memory' in performance) {
+        // Get memory usage less frequently
+        if (frameCount.current % 90 === 0 && 'memory' in performance) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const memory = (performance as any).memory;
           setMemoryUsage(Math.round(memory.usedJSHeapSize / 1024 / 1024));

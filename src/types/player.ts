@@ -8,6 +8,9 @@ export interface MovementKeys {
 export interface MovementConfig {
   moveSpeed: number;
   maxSpeed: number;
+  jumpForce?: number;
+  acceleration?: number;
+  deceleration?: number;
 }
 
 export interface MouseControlsConfig {
@@ -28,4 +31,12 @@ export interface PlayerPosition {
   x: number;
   y: number;
   z: number;
+}
+
+export interface PlayerState {
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+  isGrounded: boolean;
+  health: number;
+  maxHealth: number;
 }
